@@ -391,6 +391,7 @@ int trigger_futex(char *addr)
 #define	F_CMCI		2
 #define F_SIGBUS	4
 #define	F_FATAL		8
+#define F_EITHER	16
 
 struct test {
 	char	*testname;
@@ -431,7 +432,7 @@ struct test {
 	},
 	{
 		"patrol", "Patrol scrubber, generates SRAO machine check",
-		data_alloc, inject_uc, 0, trigger_patrol, F_MCE,
+		data_alloc, inject_uc, 0, trigger_patrol, F_EITHER,
 	},
 	{
 		"llc", "Cache write-back, generates SRAO machine check",
@@ -511,6 +512,7 @@ int main(int argc, char **argv)
 	long long paddr;
 	long	b_mce, b_cmci, a_mce, a_cmci;
 	struct timeval t1, t2;
+	int either;
 
 	progname = argv[0];
 	pagesize = getpagesize();
@@ -555,6 +557,7 @@ int main(int argc, char **argv)
 
 	for (i = 0; i < count; i++) {
 		cmci_wait_count = 0;
+		either = 0;
 		vaddr = t->alloc();
 		paddr = vtop((long long)vaddr);
 		printf("%d: %-8s vaddr = %p paddr = %llx\n", i, t->testname, vaddr, paddr);
@@ -598,8 +601,10 @@ int main(int argc, char **argv)
 			printf("Big surprise ... still running. Thought that would be fatal\n");
 		}
 
-		if (Sflag == 0 && (t->flags & F_MCE)) {
+		if (Sflag == 0 && (t->flags & (F_MCE | F_EITHER))) {
 			if (a_mce == b_mce) {
+				if (t->flags & F_EITHER)
+					goto skip1;
 				printf("Expected MCE, but none seen\n");
 			} else if (a_mce == b_mce + 1) {
 				printf("Saw local machine check\n");
@@ -608,13 +613,14 @@ int main(int argc, char **argv)
 			} else {
 				printf("Unusual number of MCEs seen: %ld\n", a_mce - b_mce);
 			}
+			either++;
 		} else {
 			if (a_mce != b_mce) {
 				printf("Saw %ld unexpected MCEs (%ld systemwide)\n", b_mce - a_mce, (b_mce - a_mce) / ncpus);
 			}
 		}
-
-		if (Sflag == 0 && (t->flags & F_CMCI)) {
+skip1:
+		if (Sflag == 0 && (t->flags & (F_CMCI | F_EITHER))) {
 			while (a_cmci < b_cmci + lcpus_persocket) {
 				if (cmci_wait_count > 1000) {
 					break;
@@ -630,6 +636,8 @@ int main(int argc, char **argv)
 						(t2.tv_usec - t1.tv_usec));
 			}
 			if (a_cmci == b_cmci) {
+				if (t->flags & F_EITHER)
+					goto skip2;
 				printf("Expected CMCI, but none seen\n");
 				printf("Test failed\n");
 				return 1;
@@ -638,12 +646,24 @@ int main(int argc, char **argv)
 				printf("Test failed\n");
 				return 1;
 			}
+			either++;
 		} else {
 			if (a_cmci != b_cmci) {
 				printf("Saw %ld unexpected CMCIs (%ld per socket)\n", a_cmci - b_cmci, (a_cmci - b_cmci) / lcpus_persocket);
 				printf("Test failed\n");
 				return 1;
 			}
+		}
+skip2:
+		if (t->flags & F_EITHER) switch (either) {
+		case 0:
+			printf("Expected CMCI or MCE, but saw neither\n");
+			printf("Test failed\n");
+			return 1;
+		case 2:
+			printf("Expected one of CMCI or MCE, but saw both\n");
+			printf("Test failed\n");
+			return 1;
 		}
 
 		usleep((useconds_t)(delay * 1.0e6));
