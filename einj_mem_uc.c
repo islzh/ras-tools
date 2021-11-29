@@ -234,6 +234,9 @@ static void *instr_alloc(void)
 
 	p += 2 * pagesize;
 
+	/*pre-load the dosum memory page to prevent vtop conversion failure*/
+	dosums();
+
 	return (void *)((long)p & ~(pagesize - 1));
 }
 
