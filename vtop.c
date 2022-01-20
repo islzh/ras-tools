@@ -63,7 +63,7 @@ int main(int argc, char **argv)
 	int process_id;
 	unsigned long long buf, phys;
 
-	if(argc < 2) {
+	if (argc != 3) {
 		printf("require virtual address and pid: 'vtop vaddress pid'\n");
 		return 1;
 	}		
