@@ -40,6 +40,7 @@ static int *apicmap;
 #define	CACHE_LINE_SIZE	64
 
 #define EINJ_ETYPE "/sys/kernel/debug/apei/einj/error_type"
+#define EINJ_ETYPE_AVAILABLE "/sys/kernel/debug/apei/einj/available_error_type"
 #define EINJ_ADDR "/sys/kernel/debug/apei/einj/param1"
 #define EINJ_MASK "/sys/kernel/debug/apei/einj/param2"
 #define EINJ_APIC "/sys/kernel/debug/apei/einj/param3"
@@ -47,10 +48,41 @@ static int *apicmap;
 #define EINJ_NOTRIGGER "/sys/kernel/debug/apei/einj/notrigger"
 #define EINJ_DOIT "/sys/kernel/debug/apei/einj/error_inject"
 
+static int check_errortype_available(char *file, unsigned long long val)
+{
+	FILE *fp;
+	int ret = -1;
+	unsigned long long available_error_type;
+
+	if (strcmp(file, EINJ_ETYPE) != 0) return 0;
+
+	fp = fopen(EINJ_ETYPE_AVAILABLE, "r");
+	if (!fp) {
+		fprintf(stderr, "%s: cannot open '%s'\n", progname, file);
+		exit(1);
+	}
+
+	while (fscanf(fp, "%llx ", &available_error_type)) {
+		if (val == available_error_type) {
+			ret = 0;
+			break;
+		}
+	}
+
+	fclose(fp);
+	return ret;
+}
+
 static void wfile(char *file, unsigned long long val)
 {
-	FILE *fp = fopen(file, "w");
+	FILE *fp;
 
+	if (check_errortype_available(file, val) != 0) {
+		fprintf(stderr, "%s: no support for error type: 0x%llx\n", progname, val);
+		exit(1);
+	}
+
+	fp = fopen(file, "w");
 	if (fp == NULL) {
 		fprintf(stderr, "%s: cannot open '%s'\n", progname, file);
 		exit(1);
