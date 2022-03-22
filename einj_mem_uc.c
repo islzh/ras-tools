@@ -62,7 +62,7 @@ static int check_errortype_available(char *file, unsigned long long val)
 		exit(1);
 	}
 
-	while (fscanf(fp, "%llx ", &available_error_type)) {
+	while (fscanf(fp, "%llx%*[^\n]", &available_error_type) == 1) {
 		if (val == available_error_type) {
 			ret = 0;
 			break;
