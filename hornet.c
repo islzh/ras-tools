@@ -209,6 +209,7 @@ int main(int argc, char **argv)
 	int	status;
 	long	lo, hi, phys, virt;
 	struct user_regs_struct regs;
+	int ret = 0;
 
 	progname = argv[0];
 
@@ -265,11 +266,12 @@ int main(int argc, char **argv)
 	if (trace) {
 		sleep(1);
 		check_ptrace(PTRACE_DETACH, pid, NULL, NULL);
-		return 0;
+		goto end;
 	}
 	if (kill(pid, SIGCONT) == -1) {
 		fprintf(stderr, "%s: cannot resume process\n", progname);
-		return 1;
+		ret = 1;
+		goto end;
 	}
 	if (pflag) {
 		while (kill(pid, 0) != -1)
@@ -280,6 +282,8 @@ int main(int argc, char **argv)
 		if (WIFSIGNALED(status) && WTERMSIG(status) == SIGBUS)
 			printf("%s: process terminated by SIGBUS\n", progname);
 	}
+
+end:
 	wfile("/sys/devices/system/memory/hard_offline_page", phys);
-	return 0;
+	return ret;
 }
