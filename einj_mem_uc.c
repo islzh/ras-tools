@@ -427,6 +427,7 @@ int trigger_futex(char *addr)
 #define F_SIGBUS	4
 #define	F_FATAL		8
 #define F_EITHER	16
+#define F_LONGWAIT	32
 
 struct test {
 	char	*testname;
@@ -467,7 +468,7 @@ struct test {
 	},
 	{
 		"patrol", "Patrol scrubber, generates SRAO machine check",
-		data_alloc, inject_uc, 0, trigger_patrol, F_EITHER,
+		data_alloc, inject_uc, 0, trigger_patrol, F_EITHER|F_LONGWAIT,
 	},
 	{
 		"llc", "Cache write-back, generates SRAO machine check",
@@ -656,19 +657,21 @@ int main(int argc, char **argv)
 		}
 skip1:
 		if (Sflag == 0 && (t->flags & (F_CMCI | F_EITHER))) {
+			int maxwait = (t->flags & F_LONGWAIT) ? 20000 : 500;
+
 			while (a_cmci < b_cmci + lcpus_persocket) {
-				if (cmci_wait_count > 1000) {
+				if (cmci_wait_count > maxwait) {
 					break;
 				}
-				usleep(100);
+				usleep(1000);
 				proc_interrupts(&a_mce, &a_cmci);
 				cmci_wait_count++;
 			}
-			if (cmci_wait_count != 0) {
+			if (a_cmci != b_cmci && cmci_wait_count != 0) {
 				gettimeofday(&t2, NULL);
-				printf("CMCIs took ~%ld usecs to be reported.\n",
-					1000000 * (t2.tv_sec - t1.tv_sec) +
-						(t2.tv_usec - t1.tv_usec));
+				printf("CMCIs took ~%.6f secs to be reported.\n",
+					(t2.tv_sec - t1.tv_sec) +
+						(t2.tv_usec - t1.tv_usec) /1.0e6);
 			}
 			if (a_cmci == b_cmci) {
 				if (t->flags & F_EITHER)
