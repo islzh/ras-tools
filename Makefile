@@ -1,9 +1,9 @@
 CFLAGS	= -O
 
-all: mca-recover vtop cmcistorm hornet einj_mem_uc lmce
+all: mca-recover vtop cmcistorm hornet einj_mem_uc lmce rep_ce_page
 
 clean:
-	rm -f *.o mca-recover vtop cmcistorm hornet einj_mem_uc lmce
+	rm -f *.o mca-recover vtop cmcistorm hornet einj_mem_uc lmce rep_ce_page
 
 mca-recover: mca-recover.c
 	cc -o mca-recover $(CFLAGS) mca-recover.c
@@ -13,6 +13,9 @@ vtop: vtop.c
 
 cmcistorm: cmcistorm.o proc_pagemap.o
 	cc -o cmcistorm $(CFLAGS) cmcistorm.o proc_pagemap.o
+
+rep_ce_page: rep_ce_page.o proc_pagemap.o
+	cc -o rep_ce_page $(CFLAGS) rep_ce_page.o proc_pagemap.o
 
 hornet: hornet.c
 	cc -o hornet $(CFLAGS) hornet.c
