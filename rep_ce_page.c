@@ -50,7 +50,11 @@ int main(int argc, char **argv)
 {
 	char *addr = mmap(NULL, 4096, PROT_READ|PROT_WRITE, MAP_SHARED|MAP_ANONYMOUS, -1, 0);
 	unsigned long long paddr;
+	int tries = MAX_TRIES;
 	int i;
+
+	if (argc == 2)
+		tries = atoi(argv[1]);
 
 	if (addr == MAP_FAILED) {
 		perror("mmap");
@@ -64,7 +68,7 @@ int main(int argc, char **argv)
 	*addr = '*';
 	paddr = vtop((unsigned long long)addr);
 
-	for (i = 0; i < MAX_TRIES; i++) {
+	for (i = 0; i < tries; i++) {
 		printf("%d: Inject to vaddr=%p paddr=0x%llx\n", i, addr, paddr);
 		wfile(EINJ_ADDR, paddr);
 		wfile(EINJ_DOIT, 1);
@@ -75,7 +79,7 @@ int main(int argc, char **argv)
 			break;
 	}
 
-	if (i == MAX_TRIES) {
+	if (i == tries) {
 		fprintf(stderr, "FAIL: Page was not offline after %d errors\n", i);
 		return 1;
 	}
