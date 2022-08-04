@@ -33,6 +33,7 @@ static void show_help(void);
 static char *progname;
 static int nsockets, ncpus, lcpus_persocket;
 static int force_flag;
+static int cmci_skip_flag;
 static int all_flag;
 static int Sflag;
 static long pagesize;
@@ -497,7 +498,7 @@ static void show_help(void)
 {
 	struct test *t;
 
-	printf("Usage: %s [-a][-c count][-d delay][-f] [-m runup:size:align][testname]\n", progname);
+	printf("Usage: %s [-a][-c count][-d delay][-f][-i] [-m runup:size:align][testname]\n", progname);
 	printf("  %-8s %-5s %s\n", "Testname", "Fatal", "Description");
 	for (t = tests; t->testname; t++)
 		printf("  %-8s %-5s %s\n", t->testname,
@@ -553,7 +554,7 @@ int main(int argc, char **argv)
 	progname = argv[0];
 	pagesize = getpagesize();
 
-	while ((c = getopt(argc, argv, "ac:d:fhm:S")) != -1) switch (c) {
+	while ((c = getopt(argc, argv, "ac:d:fhim:S")) != -1) switch (c) {
 	case 'a':
 		all_flag = 1;
 		break;
@@ -565,6 +566,9 @@ int main(int argc, char **argv)
 		break;
 	case 'f':
 		force_flag = 1;
+		break;
+	case 'i':
+		cmci_skip_flag = 1;
 		break;
 	case 'm':
 		parse_memcpy(optarg);
@@ -676,17 +680,19 @@ skip1:
 			if (a_cmci == b_cmci) {
 				if (t->flags & F_EITHER)
 					goto skip2;
-				printf("Expected CMCI, but none seen\n");
-				printf("Test failed\n");
-				return 1;
-			} else if (a_cmci < b_cmci + lcpus_persocket) {
+				if (!cmci_skip_flag) {
+					printf("Expected CMCI, but none seen\n");
+					printf("Test failed\n");
+					return 1;
+				}
+			} else if (!cmci_skip_flag && a_cmci < b_cmci + lcpus_persocket) {
 				printf("Unusual number of CMCIs seen: %ld\n", a_cmci - b_cmci);
 				printf("Test failed\n");
 				return 1;
 			}
 			either++;
 		} else {
-			if (a_cmci != b_cmci) {
+			if (!cmci_skip_flag && a_cmci != b_cmci) {
 				printf("Saw %ld unexpected CMCIs (%ld per socket)\n", a_cmci - b_cmci, (a_cmci - b_cmci) / lcpus_persocket);
 				printf("Test failed\n");
 				return 1;
